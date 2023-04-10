@@ -41,7 +41,7 @@ cd ${masterdir}
 
 if [[ -d ${ftpdir}/dists/${SOURCE}/main/installer-amd64/${VERSION} ]]; then
     echo "Copying installer version ${VERSION} from ${SOURCE} to ${DEST}"
-    dak copy-installer ${VERSION}
+    dak copy-installer -s ${SOURCE} -d ${DEST} ${VERSION}
 else
     echo "Couldn't see installer version ${VERSION} in ${SOURCE}s dir, not doing anything"
     exit 1
