@@ -182,7 +182,7 @@ function dedup() {
         cd "${archiveroot}"
         for dir in doc indices project tools; do
             if [[ -d ${dir} ]]; then
-                jdupes --hardlink --noempty --quiet --summarize --recurse ${dir}
+                jdupes --hardlink --noempty --quiet --linkhard --recurse ${dir}
             fi
         done
     done
