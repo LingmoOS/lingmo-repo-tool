@@ -241,6 +241,14 @@ class ACLPerSource(ORMObject):
 
 __all__.append('ACLPerSource')
 
+
+class ACLPerSuite(ORMObject):
+    def __repr__(self):
+        return "<ACLPerSuite acl={0} fingerprint={1} suite={2} reason={3}>".format(self.acl.name, self.fingerprint.fingerprint, self.suite.suite_name, self.reason)
+
+
+__all__.append('ACLPerSuite')
+
 ################################################################################
 
 
@@ -1922,6 +1930,7 @@ class DBConn:
         'acl_architecture_map',
         'acl_fingerprint_map',
         'acl_per_source',
+        'acl_per_suite',
         'archive',
         'bin_associations',
         'bin_contents',
@@ -2006,6 +2015,7 @@ class DBConn:
                    fingerprints=relation(Fingerprint, secondary=self.tbl_acl_fingerprint_map, collection_class=set),
                    match_keyring=relation(Keyring, primaryjoin=(self.tbl_acl.c.match_keyring_id == self.tbl_keyrings.c.id)),
                    per_source=relation(ACLPerSource, collection_class=set, back_populates="acl"),
+                   per_suite=relation(ACLPerSuite, collection_class=set, back_populates="acl"),
             ))
 
         mapper(ACLPerSource, self.tbl_acl_per_source,
@@ -2013,6 +2023,14 @@ class DBConn:
                    acl=relation(ACL, back_populates="per_source"),
                    fingerprint=relation(Fingerprint, primaryjoin=(self.tbl_acl_per_source.c.fingerprint_id == self.tbl_fingerprint.c.id)),
                    created_by=relation(Fingerprint, primaryjoin=(self.tbl_acl_per_source.c.created_by_id == self.tbl_fingerprint.c.id)),
+            ))
+
+        mapper(ACLPerSuite, self.tbl_acl_per_suite,
+               properties=dict(
+                   acl=relation(ACL, back_populates="per_suite"),
+                   fingerprint=relation(Fingerprint, primaryjoin=(self.tbl_acl_per_suite.c.fingerprint_id == self.tbl_fingerprint.c.id)),
+                   suite=relation(Suite, primaryjoin=(self.tbl_acl_per_suite.c.suite_id == self.tbl_suite.c.id)),
+                   created_by=relation(Fingerprint, primaryjoin=(self.tbl_acl_per_suite.c.created_by_id == self.tbl_fingerprint.c.id)),
             ))
 
         mapper(Archive, self.tbl_archive,

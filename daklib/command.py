@@ -2,6 +2,7 @@
 
 @contact: Debian FTP Master <ftpmaster@debian.org>
 @copyright: 2012, Ansgar Burchardt <ansgar@debian.org>
+@copyright: 2023 Emilio Pozuelo Monfort <pochu@debian.org>
 @license: GPL-2+
 """
 
@@ -87,6 +88,8 @@ class CommandFile:
                     self.action_dm_migrate(self.fingerprint, section, session)
                 elif action == 'break-the-archive':
                     self.action_break_the_archive(self.fingerprint, section, session)
+                elif action == 'process-upload':
+                    self.action_process_upload(self.fingerprint, section, session)
                 else:
                     raise CommandError('Unknown action: {0}'.format(action))
 
@@ -337,3 +340,78 @@ class CommandFile:
             name = uid.name.split()[0]
 
         self.result.append("DAK9000: I'm sorry, {0}. I'm afraid I can't do that.".format(name))
+
+    def _sourcename_from_dbchanges(self, changes: DBChange) -> str:
+        source = changes.source
+        # in case the Source contains spaces, e.g. in binNMU .changes
+        source = source.split(' ')[0]
+
+        return source
+
+    def _process_upload_add_command_file(self, upload: PolicyQueueUpload, command) -> None:
+        source = self._sourcename_from_dbchanges(upload.changes)
+        filename = f"{command}.{source}_{upload.changes.version}"
+        content = "OK" if command == "ACCEPT" else "NOTOK"
+
+        with open(os.path.join(upload.policy_queue.path, "COMMENTS", filename), "w") as f:
+            f.write(content + "\n")
+
+    def _action_process_upload_common(self, fingerprint, section, session) -> None:
+        cnf = Config()
+
+        if 'Command::ProcessUpload::ACL' not in cnf:
+            raise CommandError('Process Upload command is not configured for this archive.')
+
+    def action_process_upload(self, fingerprint, section, session) -> None:
+        self._action_process_upload_common(fingerprint, section, session)
+
+        cnf = Config()
+        acl_name = cnf.get('Command::ProcessUpload::ACL', 'process-upload')
+        acl = session.query(ACL).filter_by(name=acl_name).one()
+
+        source = section['Source'].replace(' ', '')
+        version = section['Version'].replace(' ', '')
+        command = section['Command'].replace(' ', '')
+
+        if command not in ('ACCEPT', 'REJECT'):
+            raise CommandError('Invalid ProcessUpload command: {0}'.format(command))
+
+        dbsource = session.query(DBSource).filter_by(source=source, version=version)
+        uploads = session.query(PolicyQueueUpload).join(PolicyQueueUpload.changes) \
+            .filter_by(version=version) \
+            .all()
+        # we don't filter_by(source=source) because a source in a DBChange can
+        # contain more than the source, e.g. 'source (version)' for binNMUs
+        uploads = [upload for upload in uploads if self._sourcename_from_dbchanges(upload.changes) == source]
+        if not uploads:
+            raise CommandError('Could not find upload for {0} {1}'.format(source, version))
+
+        upload = uploads[0]
+
+        # we consider all uploads except those for NEW, and take into account the
+        # target suite when checking for permissions
+        if upload.policy_queue.queue_name == 'new':
+            raise CommandError('Processing uploads from NEW not allowed ({0} {1})'.format(source, version))
+
+        suite = upload.target_suite
+
+        self.log.log(['process-upload', fingerprint.fingerprint, source, version, upload.policy_queue.queue_name, suite.suite_name])
+
+        allowed = False
+        for entry in session.query(ACLPerSource).filter_by(acl=acl,
+                                                           fingerprint=fingerprint,
+                                                           source=source):
+            allowed = True
+
+        if not allowed:
+            for entry in session.query(ACLPerSuite).filter_by(acl=acl,
+                                                              fingerprint=fingerprint,
+                                                              suite=suite):
+                allowed = True
+
+        self.log.log(['process-upload', fingerprint.fingerprint, source, version, upload.policy_queue.queue_name, suite.suite_name, allowed])
+
+        if allowed:
+            self._process_upload_add_command_file(upload, command)
+
+        self.result.append('ProcessUpload: processed fp {0}: {1}_{2}/{3}'.format(fingerprint.fingerprint, source, version, suite.codename))
