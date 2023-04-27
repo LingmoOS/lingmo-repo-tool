@@ -19,3 +19,6 @@ command="rsync --server --delete -vvlogDtpre.iLsfx . /srv/ftp.debian.org/web/def
 
 ## rrd file
 command="rsync --server -vlogDtpre.iLsfx . /srv/ftp.debian.org/web/stat/deferred.rrd",restrict,from="128.31.0.69,2603:400a:ffff:bb8::801f:45,usper.debian.org" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHyX7qEexkQ7YW6nskVxwF2zGAX8oJB56Tb7DlxM46Pu sync deferred rrd file
+
+## dak copy installer
+command="/srv/ftp-master.debian.org/dak/scripts/debian/copy_installer",restrict,from="195.192.210.131,2a02:16a8:dc41:100::131,respighi.debian.org" ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDSzZLd6Mqv1kZ57z5kZ4IYTf83cLLoP2fJTv35BZej9yrRyQEBbXuikkfjRhExJZioe3XNO5tLEYYN1aKlbOAU2q3JCuOzX2SzQ/OkDkfRGyiMEFjcyrL/LFfnJIHniugHV81t3EbHI/hKCzGijgDlh8X4GvKm01zy/2p1YQQr71ggiPfXGv0cJluUTN/iumrVjERRF6JRt9B9ldq+XlvXuR9jA1wGPse6p823+rNg06V8R709u9d+aV0qmM5OjVEjDsbq7DJ/KzxJkOxyurGJdqQGbU4j2yK0mATXH2PFH9lSATpiHCdsgHfrjIAO/OKzM8FMH/7PSD1Vl97SQPnObssTNjBabm0PrQNAxgwTXBKX29wmZf/3jn9dqRbF1tebo0+Xul+TpFFZ5gpMQLPGNaSlESm9UiIn7wI6LQ8/9rbbDACHONVvQAkK0111eY0OStno1XEf6Ul6DE35Ks1ZllD9E2AnvLChnuzvGtKScfjqBxM61FnwS+vw6R0Bmoc= kibi@tokyo
