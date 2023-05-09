@@ -47,6 +47,7 @@ class CommandFile:
         self.log = log
         self.filename: str = filename
         self.data = data
+        self.uploader = None
 
     def _check_replay(self, signed_file: SignedFile, session):
         """check for replays
