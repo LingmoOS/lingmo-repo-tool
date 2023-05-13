@@ -263,7 +263,7 @@ class PolicyQueueUploadHandler:
 
         for binary in self.upload.binaries:
             binary_proxy = binary.proxy
-            priority = binary_proxy['Priority']
+            priority = binary_proxy.get('Priority', 'optional')
             section = binary_proxy['Section']
             check_override(binary.package, binary.binarytype, priority, section, included=True)
 

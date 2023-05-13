@@ -99,7 +99,7 @@ def import_binary(log, transaction, suite, component, directory, hashed_file, fi
         overridetype = session.query(OverrideType).filter_by(overridetype=binary.type).one()
         overridesuite = suite.get_overridesuite()
         section = session.query(Section).filter_by(section=binary.control['Section']).one()
-        priority = session.query(Priority).filter_by(priority=binary.control['Priority']).one()
+        priority = session.query(Priority).filter_by(priority=binary.control.get('Priority', 'optional')).one()
 
         override = Override(package=binary.control['Package'], suite=overridesuite, component=component,
                             section=section, priority=priority, overridetype=overridetype)
