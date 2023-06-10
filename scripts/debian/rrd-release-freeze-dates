@@ -5,3 +5,5 @@ VRULE:1552345200#00ff00:buster freeze
 VRULE:1562397149#00ff00:buster release
 VRULE:1615503600#ff0000:bullseye hard freeze
 VRULE:1628927858#ff0000:bullseye release
+VRULE:1678622400#0000ff:bookworm hard freeze
+VRULE:1686391200#0000ff:bookworm release
