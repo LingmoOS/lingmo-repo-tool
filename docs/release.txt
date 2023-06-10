@@ -7,6 +7,7 @@ corrections. There might still be errors.
 configdir=${configdir:-"/srv/ftp-master.debian.org/dak/config/debian"}
 export SCRIPTVARS=${configdir}/vars
 . "${SCRIPTVARS}"
+. "${configdir}/common"
 . "${configdir}/dinstall.functions"
 umask 022
 
@@ -32,7 +33,7 @@ rename-suite() {(
     exit 1
   fi
 
-  mv -- ${oldsuite} ${newsuite}
+  mv -nT -- ${oldsuite} ${newsuite}
 
   sql -1 <<-EOT
 	UPDATE suite
@@ -58,7 +59,7 @@ rename-policy-queue() {(
     echo "E: ${newpath} already exists" >&2
     exit 1
   fi
-  mv -- ${oldpath:?} ${newpath}
+  mv -nT -- ${oldpath:?} ${newpath}
   sql -c "UPDATE policy_queue SET queue_name='${newqueue}', path='${newpath}' WHERE queue_name='${oldqueue}'"
 )}
 
@@ -95,10 +96,7 @@ done
 if [[ -n "${new_oldoldoldstable}" ]]; then
   rename-suite {,old}oldoldstable
   rename-suite {,old}oldoldstable-updates
-  # only for stretch and later:
-  if [[ "${new_oldoldoldstable}" != "jessie" ]]; then
-    rename-suite {,old}oldoldstable-debug
-  fi
+  rename-suite {,old}oldoldstable-debug
 fi
 
 # Careful! Some suites might have stable-X symlinks, but not use the
@@ -109,6 +107,7 @@ fi
 
 rename-suite {,old}oldstable
 rename-suite {,old}oldstable-debug
+# buster-updates has suite_name=buster-updates, but release_suite needs to be updated to oldoldstable-updates
 #rename-suite {,old}oldstable-updates
 rename-suite {,old}oldstable-proposed-updates
 rename-suite {,old}oldstable-proposed-updates-debug
@@ -116,26 +115,33 @@ rename-suite buildd-{,old}oldstable-proposed-updates
 rename-suite {,old}oldstable-new
 rename-policy-queue oldstable-new oldoldstable-new /srv/ftp-master.debian.org/queue/o-o-p-u-new
 rename-suite buildd-{,old}oldstable-backports-sloppy
+rename-suite {,old}oldstable-backports-sloppy
+rename-suite {,old}oldstable-backports-sloppy-debug
+# trixie release: might also need to rename more backports suites here!
 
 rename-suite {,old}stable
 rename-suite {,old}stable-debug
+rename-suite {,old}stable-updates
 rename-suite {,oldstable-}proposed-updates
 rename-suite {,oldstable-}proposed-updates-debug
 rename-suite {,old}stable-new
 rename-suite buildd-{,oldstable-}proposed-updates
-rename-policy-queue oldstable-new oldoldstable-new /srv/ftp-master.debian.org/queue/o-o-p-u-new
 rename-policy-queue stable-new oldstable-new /srv/ftp-master.debian.org/queue/o-p-u-new
 rename-suite {,old}stable-backports-sloppy
 rename-suite {,old}stable-backports-sloppy-debug
 rename-suite buildd-{,old}stable-backports-sloppy
+# trixie release: might also need to rename more backports suites here!
 
 rename-suite testing stable
 rename-suite testing-debug stable-debug
 rename-suite testing-proposed-updates proposed-updates
 rename-suite testing-proposed-updates-debug proposed-updates-debug
 rename-suite {testing,stable}-updates
-rename-suite buildd-{testing,stable}-backports-sloppy
+rename-suite {testing,stable}-backports
+rename-suite {testing,stable}-backports-debug
+rename-suite buildd-{testing,stable}-backports
 rename-suite buildd-{testing-,}proposed-updates
+# trixie release: might also need to rename more backports suites here!
 
 UPDATE SUITES:
 
@@ -203,9 +209,13 @@ ln -sTf ${new_testing}-updates testing-updates
 
 ln -sT ${new_stable} Debian${new_stable_version}.0
 
+cd ${base}/archive/debian-debug/dists
+# fix symlinks there too...
+
 # update README files
 cd ${ftpdir}
-sensible-editor README, README.html, dists/README
+sensible-editor README README.html dists/README
+rm -- README~ README.html~ dists/README~
 
 # remove pdiffs for new stable
 cd ${base}/archive/debian-debug
@@ -225,11 +235,12 @@ EOT
 #  - even copy in testing/ might be outdated.
 
 cd /srv/ftp-master.debian.org/public/incoming.debian.org/web/debian-buildd/dists
-rm buildd-${new_stable}-proposed-updates buildd-${new_oldstable}-proposed-updates
-mv buildd-proposed-updates buildd-${new_oldstable}-proposed-updates
-mv buildd-testing-proposed-updates buildd-${new_stable}-proposed-updates
-ln -sT buildd-${new_oldstable}-proposed-updates buildd-oldstable-proposed-updates
-ln -sT buildd-${new_stable}-proposed-updates buildd-proposed-updates
+# This already looked fine during bookworm release.
+#rm buildd-${new_stable}-proposed-updates buildd-${new_oldstable}-proposed-updates
+#mv -nT buildd-proposed-updates buildd-${new_oldstable}-proposed-updates
+#mv -nT buildd-testing-proposed-updates buildd-${new_stable}-proposed-updates
+#ln -sT buildd-${new_oldstable}-proposed-updates buildd-oldstable-proposed-updates
+#ln -sT buildd-${new_stable}-proposed-updates buildd-proposed-updates
 
 D-I CLEANUP:
 cd /srv/ftp-master.debian.org/ftp/dists/${new_stable}/main
@@ -248,21 +259,38 @@ suite=stable
 dak generate-packages-sources2 --force -s ${suite},${suite}-debug
 dak contents generate -f -s ${suite} -a ftp-master
 
-for suite in stable stable-debug oldstable oldstable-debug oldoldstable oldoldstable-debug ${new_oldoldstable}-updates; do
+for suite in stable stable-debug oldstable oldstable-debug ${new_oldstable}-updates oldoldstable oldoldstable-debug ${new_oldoldstable}-updates; do
   dak generate-releases -f -s ${suite}
 done
-
-# rm InRelease for stretch
-rm -- $(realpath "${ftpdir}/dists/stretch/InRelease") $(realpath "${base}/archive/debian-debug/dists/stretch-debug/InRelease")
-rm -- "${ftpdir}/dists/stretch/InRelease" "${base}/archive/debian-debug/dists/stretch-debug/InRelease"
 
 for suite in oldoldstable oldoldstable-debug ${new_oldoldstable}-updates oldstable oldstable-debug stable stable-debug; do
   ${scriptsdir}/sync-release ${suite}
 done
 
-# Add signatures from release team
-# mirror push (CD MIRROR ONLY!)
+mkdir -p ~/${new_stable}_${new_stable_version}.0
+cp -r ${ftpdir}/zzz-dists ~/${new_stable}_${new_stable_version}.0/zzz-dists-pre-signature-merge
+cp -r ${base}/archive/debian-debug/zzz-dists ~/${new_stable}_${new_stable_version}.0/debug-zzz-dists-pre-signature-merge
 
+# Add signatures from release team
+# Import function `merge-release-signatures` from config/debian/pointrelease
+
+suitename=${new_stable:?}
+newrev=${new_stable_version:?}.0
+release_base=https://release.debian.org/proposed-updates/${newrev%%.*}/${newrev}
+wget="wget --ca-directory=/etc/ssl/ca-debian"
+
+set -x
+# stable
+for suite in oldstable oldoldstable; do
+  merge-release-signatures $(get_archiveroot ftp-master) ${suite} Release.gpg Release Release-${suite}.gpg https://release.debian.org/proposed-updates/${new_stable_version}/${new_stable_version}.0/sigs/Release-${suite}.gpg
+  merge-release-signatures $(get_archiveroot ftp-master) ${suite} InRelease "" InRelease-${suite}.gpg https://release.debian.org/proposed-updates/${new_stable_version}/${new_stable_version}.0/sigs/InRelease-${suite}.gpg
+done
+for suite in stable-debug oldstable-debug oldoldstable-debug; do
+  merge-release-signatures $(get_archiveroot debian-debug) ${suite} Release.gpg Release Release-${suite}.gpg https://release.debian.org/proposed-updates/${new_stable_version}/${new_stable_version}.0/sigs/Release-${suite}.gpg
+  merge-release-signatures $(get_archiveroot debian-debug) ${suite} InRelease "" InRelease-${suite}.gpg https://release.debian.org/proposed-updates/${new_stable_version}/${new_stable_version}.0/sigs/InRelease-${suite}.gpg
+done
+
+# mirror push (CD MIRROR ONLY!)
 (
   export SCRIPTVARS=${configdir}/vars
   . "${SCRIPTVARS}"
@@ -362,8 +390,8 @@ ln -sT buildd-${new_testing}-proposed-updates buildd-testing-proposed-updates
 
 MOVE MOVING AROUND:
 cd /srv/ftp-master.debian.org/queue
-mv oldstable-proposed-updates oldoldstable-proposed-updates
-mv proposed-updates oldstable-proposed-updates
+mv -nT oldstable-proposed-updates oldoldstable-proposed-updates
+mv -nT proposed-updates oldstable-proposed-updates
 mkdir -p p-u-new/COMMENTS proposed-updates
 
 V-C:
@@ -383,6 +411,8 @@ dak admin v-c add unstable MustBeNewerThan testing
 dak admin v-c add experimental MustBeNewerThan testing
 
 # copy d-i to new testing (so same d-i in stable, testing, unstable)
+cd ${ftpdir}/dists
+mkdir -p ${new_testing}/main
 dak copy-installer ${di_version:?}
 
 # backports
@@ -392,14 +422,14 @@ dak admin suite add stable-backports-sloppy-debug '' origin="Debian Backports" l
 dak admin suite add testing-backports '' origin="Debian Backports" label='Debian Backports' codename=${new_testing}-backports description='Debian X.Y - Backports' archive=ftp-master
 dak admin suite add testing-backports-debug '' origin="Debian Backports" label='Debian Backports debug' codename=${new_testing}-backports-debug description='Debian X.Y - Backports - Debug Information' archive=debian-debug
 
-configure-backports-suite() {
+configure-backports-suite() {(
   local suite=${1:?}
   local reference=${2:?}
   local components=${3:?}
   dak admin s-c add ${suite} ${components}
   dak admin s-a add ${suite} source all $(dak admin s-a list-arch ${reference})
   dak admin suite-config set ${suite} notautomatic=true butautomaticupgrades=true accept_source_uploads=false accept_binary_uploads=false close_bugs=false
-}
+)}
 
 for suite in stable-backports-sloppy stable-backports-sloppy-debug; do
   configure-backports-suite ${suite} ${new_stable} "${new_stable_components}"
@@ -474,16 +504,16 @@ dak generate-releases -a build-queues
 ########################################################################
 # On security-master:
 
-rename-suite {,old}oldoldstable
+#rename-suite {,old}oldoldstable
 rename-suite {,old}oldstable
-rename-suite {,old}stable
+rename-suite {,old}stable-security
 rename-suite {testing,stable}-security
 rename-suite {,old}oldstable-debug
-rename-suite {,old}stable-debug
+rename-suite {,old}stable-security-debug
 rename-suite {testing,stable}-security-debug stable-debug
 rename-suite buildd-{,old}oldoldstable
 rename-suite buildd-{,old}oldstable
-rename-suite buildd-{,old}stable
+rename-suite buildd-{,old}stable-security
 rename-suite buildd-{testing,stable}-security
 
 begin;

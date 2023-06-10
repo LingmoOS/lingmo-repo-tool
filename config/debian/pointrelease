@@ -403,16 +403,18 @@ ${scriptsdir}/sync-release ${suite}-debug
 log "Release file generated, waiting for RMs checking and (hopefully) signing"
 
 # Remove InRelease: Release can be signed by both ftpmaster & stable release keys
-merge-release-signatures() {
-    local archiveroot="${1}"
-    local s="${2}"
-    local oursignature="${3}"
+merge-release-signatures() {(
+    set -e
+    local archiveroot="${1:?}"
+    local s="${2:?}"
+    local oursignature="${3:?}"
     local ourmessage="${4}"
-    local releasefile="${5}"
+    local releasefile="${5:?}"
+    local url="${6:-${release_base}/${releasefile}}"
 
     echo "==== Processing ${s}/${oursignature}..."
 
-    mkdir -p ~/${suitename}_${newrev}/${s}
+    mkdir -p ~/${suitename:?}_${newrev:?}/${s}
 
     # backup ${oursignature} before we modify it...
     # make a .orig copy which we don't overwrite below
@@ -420,7 +422,7 @@ merge-release-signatures() {
     cp --no-clobber ${archiveroot}/zzz-dists/${s}/${oursignature} ~/${suitename}_${newrev}/${s}/${oursignature}.orig
 
     cd ~/${suitename}_${newrev}/${s}
-    while ! ${wget} -O "${releasefile}" "${release_base}/${releasefile}"; do
+    while ! ${wget:?} -O "${releasefile}" "${url}"; do
         sleep 10
     done
 
@@ -435,7 +437,7 @@ merge-release-signatures() {
     gpg --no-default-keyring --keyring /usr/share/keyrings/debian-archive-keyring.gpg --trust-model=always --verify ${oursignature} ${ourmessage}
 
     cp ${oursignature} ${archiveroot}/dists/${s}/${oursignature}
-}
+)}
 
 merge-release-signatures $(get_archiveroot ftp-master) ${suite} Release.gpg Release Release-${newrev}.gpg
 merge-release-signatures $(get_archiveroot debian-debug) ${suite}-debug Release.gpg Release Release-${newrev}-debug.gpg
