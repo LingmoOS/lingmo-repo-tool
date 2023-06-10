@@ -1,0 +1,111 @@
+ROOT=/srv/archive.debian.org
+etcdir=${ROOT:?}/etc
+logdir=${ROOT:?}/log
+
+export PATH="${ROOT}/bin:$PATH"
+export RSYNC_SSL_PORT=1873
+export RSYNC_SSL_CA_CERT=/etc/ssl/ca-debian/ca-certificates.crt
+export RSYNC_USER=...
+export RSYNC_PASSWORD=...
+
+cd ${logdir}
+debmirror \
+  --progress \
+  --nocleanup \
+  --method=rsync --user="${RSYNC_USER:?}" --host=security-master.debian.org --root=debian-security \
+  --omit-suite-symlinks \
+  --dist=jessie/updates \
+  --arch=amd64,armel,armhf,i386 \
+  --section=main,contrib,non-free,main/debian-installer,contrib/debian-installer,non-free/debian-installer \
+  --i18n --getcontents \
+  --checksums \
+  --check-gpg --keyring=/usr/share/keyrings/debian-archive-stretch-security-automatic.gpg \
+  --diff=none --rsync-extra=none \
+  ${ROOT:?}/debian-archive/debian-security \
+  > ${logdir}/2023-02-18-debmirror-jessie-security.txt 2>&1
+
+cd ${logdir}
+debmirror \
+  --progress \
+  --nocleanup \
+  --method=rsync --user="${RSYNC_USER:?}" --host=security-master.debian.org --root=debian-security \
+  --omit-suite-symlinks \
+  --dist=stretch/updates \
+  --arch=amd64,arm64,armel,armhf,i386 \
+  --section=main,contrib,non-free,main/debian-installer,contrib/debian-installer,non-free/debian-installer \
+  --i18n --getcontents \
+  --checksums \
+  --check-gpg --keyring=/usr/share/keyrings/debian-archive-stretch-security-automatic.gpg \
+  --diff=none --rsync-extra=none \
+  ${ROOT:?}/debian-archive/debian-security \
+  > ${logdir}/2023-02-18-debmirror-stretch-security.txt 2>&1
+
+# jdupes: --order=time to get timestamp of oldest file
+# Note: jdupes feels veeeery slow (hours): it reads beginning of all files
+# first, but then identifying potential copies is fast. There is no feedback
+# while it reads data.
+cd ${ROOT}
+time jdupes --order=time --noempty --printwithsummary --recurse debian-archive > ${logdir}/2023-03-30-archive-jdupes-test.txt 2>&1
+time jdupes --order=time --noempty --linkhard --recurse debian-archive > ${logdir}/2023-03-30-archive-jdupes.txt 2>&1
+
+# For later:
+cd ${logdir}
+# suite=stretch keyring=/usr/share/keyrings/debian-archive-stretch-automatic.gpg di_opts="--di-dist=dists --di-arch=arches"
+# suite=stretch-proposed-updates keyring=/usr/share/keyrings/debian-archive-buster-automatic.gpg di_opts=" "
+suite=stretch-backports keyring=/usr/share/keyrings/debian-archive-buster-automatic.gpg di_opts=" "
+suite=stretch-backports-sloppy keyring=/usr/share/keyrings/debian-archive-buster-automatic.gpg di_opts=" "
+time debmirror \
+  --progress \
+  --nocleanup \
+  --method=rsync --user="${RSYNC_USER:?}" --host=ftp-master.debian.org --root=debian \
+  --omit-suite-symlinks \
+  --dist=${suite:?} \
+  --arch=amd64,arm64,armel,armhf,i386,mips,mips64el,mipsel,ppc64el,s390x \
+  ${di_opts:?} \
+  --section=main,contrib,non-free,main/debian-installer,contrib/debian-installer,non-free/debian-installer \
+  --i18n --getcontents \
+  --checksums \
+  --check-gpg --keyring=${keyring:?} \
+  --diff=none --rsync-extra=none \
+  ${ROOT:?}/debian-archive/debian \
+  > ${logdir:?}/2023-03-30-debmirror-${suite:?}.txt 2>&1
+
+# Copied dists/ tree as otherwise older installer versions and ChangeLog were missing.
+# Only difference after this: Release{,.gpg} are real files, not symlinks to zzz-dists
+cd ${ROOT:?}/debian-archive/debian/dists/${suite:?}
+rm -rf main contrib non-free
+cp -a /srv/ftp-master.debian.org/ftp/dists/${suite:?}/{ChangeLog,main,contrib,non-free} .
+
+# check DEP11 data?
+# + stretch-debug
+
+suite=stretch-debug keyring=/usr/share/keyrings/debian-archive-stretch-automatic.gpg di_opts=" "
+suite=stretch-backports-debug keyring=/usr/share/keyrings/debian-archive-buster-automatic.gpg di_opts=" "
+suite=stretch-backports-sloppy-debug keyring=/usr/share/keyrings/debian-archive-buster-automatic.gpg di_opts=" "
+time debmirror \
+  --progress \
+  --nocleanup \
+  --method=rsync --user="${RSYNC_USER:?}" --host=ftp-master.debian.org --root=debian-debug \
+  --omit-suite-symlinks \
+  --dist=${suite:?} \
+  --arch=amd64,arm64,armel,armhf,i386,mips,mips64el,mipsel,ppc64el,s390x \
+  ${di_opts:?} \
+  --section=main,contrib,non-free,main/debian-installer,contrib/debian-installer,non-free/debian-installer \
+  --i18n --getcontents \
+  --checksums \
+  --check-gpg --keyring=${keyring:?} \
+  --diff=none --rsync-extra=none \
+  ${ROOT:?}/debian-archive/debian-debug \
+  > ${logdir:?}/2023-03-30-debmirror-${suite:?}.txt 2>&1
+
+cd ${ROOT:?}/debian-archive/debian/dists
+for d in stretch-backports stretch-backports-sloppy; do
+  ( set -e; cd ${d}; rm -rf main contrib non-free; /usr/bin/rsync -a /srv/ftp-master.debian.org/ftp/dists/${d}/{main,contrib,non-free} .; );
+done
+
+cd ${ROOT:?}/debian-archive/debian-debug/dists
+for d in stretch-backports-debug stretch-backports-sloppy-debug; do
+  ( set -e; cd ${d}; rm -rf main contrib non-free; /usr/bin/rsync -a /srv/ftp-master.debian.org/archive/debian-debug/dists/${d}/{main,contrib,non-free} .; );
+done
+
+# + jdupes again
