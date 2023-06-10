@@ -500,6 +500,7 @@ dak generate-releases -s testing-debug
 dak generate-packages-sources2 -a build-queues
 dak generate-releases -a build-queues
 
+# do not forget to push incoming.d.o as well
 
 ########################################################################
 # On security-master:
