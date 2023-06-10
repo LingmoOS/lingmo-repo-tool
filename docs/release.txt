@@ -1,5 +1,8 @@
-Notes from the Debian Stretch release
-=====================================
+Notes from the Debian bookworm release
+======================================
+
+Some notes from the Debian bookworm release including some
+corrections. There might still be errors.
 
 configdir=${configdir:-"/srv/ftp-master.debian.org/dak/config/debian"}
 export SCRIPTVARS=${configdir}/vars
@@ -59,30 +62,29 @@ rename-policy-queue() {(
   sql -c "UPDATE policy_queue SET queue_name='${newqueue}', path='${newpath}' WHERE queue_name='${oldqueue}'"
 )}
 
-Notes from the Debian Bullseye release
-======================================
+export new_stable_version=12
+export new_stable_date='10 June 2023'
+export new_stable_short_date='Sat, 10 Jun 2023'
 
-Some notes from the Debian Bullseye release including some
-corrections. There might still be errors.
+export new_oldoldoldstable=""
+export new_oldoldstable=buster
+export new_oldstable=bullseye
+export new_stable=bookworm
+export new_testing=trixie
 
-export new_stable_version=11
-export new_stable_date='14 August 2021'
-export new_stable_short_date='Sat, 14 Aug 2021'
+export new_stable_components="main contrib non-free-firmware non-free"
+export new_testing_components="main contrib non-free-firmware non-free"
 
-export new_oldoldoldstable=jessie
-export new_oldoldstable=stretch
-export new_oldstable=buster
-export new_stable=bullseye
-export new_testing=bookworm
+export new_oldoldoldstable_key=E1CF20DDFFE4B89E802658F1E0B11894F66AEC98
+export new_oldoldoldstable_security_key=6ED6F5CB5FA6FB2F460AE88EEDA0D2388AE22BA9
+export new_oldoldstable_key=80D15823B7FD1561F9F7BCDDDC30D7C23CBBABEE
+export new_oldoldstable_security_key=5E61B217265DA9807A23C5FF4DFAB270CAA96DFA
+export new_oldstable_key=1F89983E0081FDE018F3CC9673A4F27B8DD47936
+export new_oldstable_security_key=AC530D520F2F3269F5E98313A48449044AAD5C5D
+export new_stable_key=B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8
+export new_stable_security_key=05AB90340C0C5E797F44A8C8254CF3B5AEC0A8F0
 
-export new_oldoldstable_key=E1CF20DDFFE4B89E802658F1E0B11894F66AEC98
-export new_oldoldstable_security_key=6ED6F5CB5FA6FB2F460AE88EEDA0D2388AE22BA9
-export new_oldstable_key=80D15823B7FD1561F9F7BCDDDC30D7C23CBBABEE
-export new_oldstable_security_key=5E61B217265DA9807A23C5FF4DFAB270CAA96DFA
-export new_stable_key=1F89983E0081FDE018F3CC9673A4F27B8DD47936
-export new_stable_security_key=AC530D520F2F3269F5E98313A48449044AAD5C5D
-
-export di_version=20210731
+export di_version=20230607
 
 sql_vars=(new_stable_version new_stable_date new_oldoldoldstable new_oldoldstable new_oldstable new_stable new_testing new_oldoldstable_key new_oldoldstable_security_key new_oldstable_key new_oldstable_security_key new_stable_key new_stable_security_key)
 sql_opts=()
@@ -276,7 +278,7 @@ update suite set signingkeys = ARRAY[:'new_oldstable_key', :'new_stable_key'] wh
 
 ${NEW_STABLE}-R0:
 dak admin suite add ${new_stable}-r0 '' description='Extraneous packages/sources required for GPL compliance' origin=Debian label=Debian codename=${new_stable}-r0 accept_source_uploads=false accept_binary_uploads=false archive=ftp-master
-dak admin s-c add ${new_stable}-r0 main contrib non-free
+dak admin s-c add ${new_stable}-r0 ${new_stable_components}
 dak admin s-a add ${new_stable}-r0 $(dak admin s-a list-arch stable)
 
 dak control-suite -l stable | grep '^debian-installer ' | dak control-suite -a ${new_stable}-r0
@@ -294,31 +296,31 @@ insert into policy_queue (queue_name, path, change_perms, suite_id) values ('sta
 update suite set policy_queue_id = (select id from policy_queue where queue_name = 'stable-new') where codename = concat(:'new_stable', '-proposed-updates');
 commit;
 
-dak admin s-c add stable-new main contrib non-free
+dak admin s-c add stable-new ${new_stable_components}
 dak admin s-a add stable-new source all $(dak admin s-a list-arch stable)
 
 NEW TESTING:
 dak admin suite add testing '' origin=Debian label=Debian codename=${new_testing} description='Debian x.y Testing distribution - Not Released' accept_source_uploads=false accept_binary_uploads=false allowcsset=True archive=ftp-master changelog_url='https://metadata.ftp-master.debian.org/changelogs/@CHANGEPATH@_changelog'
-dak admin s-c add testing main contrib non-free
+dak admin s-c add testing ${new_testing_components}
 dak admin s-a add testing source all $(dak admin s-a list-arch stable)
 
 dak admin suite add testing-debug '' origin=Debian label='Debian debug' codename=${new_testing}-debug description='Debian x.y Testing distribution - Not Released - Debug Information' accept_source_uploads=false accept_binary_uploads=false allowcsset=True archive=debian-debug
-dak admin s-c add testing-debug main contrib non-free
+dak admin s-c add testing-debug ${new_testing_components}
 dak admin s-a add testing-debug source all $(dak admin s-a list-arch stable)
 
 dak admin suite add testing-proposed-updates '' origin=Debian label=Debian codename=${new_testing}-proposed-updates description='Debian x.y Testing distribution - Proposed Updates - Not Released' allowcsset=True archive=ftp-master
-dak admin s-c add testing-proposed-updates main contrib non-free
+dak admin s-c add testing-proposed-updates ${new_testing_components}
 dak admin s-a add testing-proposed-updates source all $(dak admin s-a list-arch stable)
 
 dak admin suite add testing-proposed-updates-debug '' origin=Debian label='Debian debug' codename=${new_testing}-proposed-updates-debug description='Debian x.y Testing - Proposed Updates - Not Released - Debug Information' accept_source_uploads=false accept_binary_uploads=false archive=debian-debug
-dak admin s-c add testing-proposed-updates-debug main contrib non-free
+dak admin s-c add testing-proposed-updates-debug ${new_testing_components}
 dak admin s-a add testing-proposed-updates-debug source all $(dak admin s-a list-arch stable)
 
 dak admin suite add testing-updates '' origin=Debian label=Debian codename=${new_testing}-updates description='Debian x.y Testing distribution Updates - Not Released' accept_source_uploads=false accept_binary_uploads=false allowcsset=True archive=ftp-master
-dak admin s-c add testing-updates main contrib non-free
+dak admin s-c add testing-updates ${new_testing_components}
 dak admin s-a add testing-updates source all $(dak admin s-a list-arch stable)
 
-for c in main contrib non-free; do
+for c in ${new_testing_components}; do
   for t in deb dsc udeb; do
     dak control-overrides -s stable -t ${t} -c ${c} -l | dak control-overrides -s testing -t ${t} -c ${c} --set
   done
@@ -393,16 +395,17 @@ dak admin suite add testing-backports-debug '' origin="Debian Backports" label='
 configure-backports-suite() {
   local suite=${1:?}
   local reference=${2:?}
-  dak admin s-c add ${suite} main contrib non-free
+  local components=${3:?}
+  dak admin s-c add ${suite} ${components}
   dak admin s-a add ${suite} source all $(dak admin s-a list-arch ${reference})
   dak admin suite-config set ${suite} notautomatic=true butautomaticupgrades=true accept_source_uploads=false accept_binary_uploads=false close_bugs=false
 }
 
 for suite in stable-backports-sloppy stable-backports-sloppy-debug; do
-  configure-backports-suite ${suite} ${new_stable}
+  configure-backports-suite ${suite} ${new_stable} "${new_stable_components}"
 done
 for suite in testing-backports testing-backports-debug; do
-  configure-backports-suite ${suite} ${new_testing}
+  configure-backports-suite ${suite} ${new_testing} "${new_testing_components}"
 done
 
 cd ${ftpdir}/dists
@@ -497,7 +500,7 @@ dak admin suite add testing-security '' origin=Debian label=Debian-Security code
 dak admin suite add testing-security-debug '' origin=Debian label="Debian-Security debug" codename=${new_testing:?}-security-debug description='Debian x.y Testing - Security Updates - Debug Information - Not Released' accept_source_uploads=false accept_binary_uploads=false archive=debian-security-debug
 
 for suite in testing-security testing-security-debug; do
-  dak admin s-c add ${suite} updates/{main,contrib,non-free}
+  dak admin s-c add ${suite} updates/{main,contrib,non-free,non-free-firmware}
   dak admin s-a add ${suite} source all $(dak admin s-a list-arch stable-security)
 done
 
