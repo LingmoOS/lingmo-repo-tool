@@ -497,6 +497,7 @@ done
 dak generate-releases -a ftp-master
 dak generate-packages-sources2 -s testing-debug
 dak generate-releases -s testing-debug
+# ${new_testing}-backports-debug and others might be missing!
 dak generate-packages-sources2 -a build-queues
 dak generate-releases -a build-queues
 
