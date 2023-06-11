@@ -207,7 +207,7 @@
 ./pool/main/p/package/package_0.1-1_all.deb
 ./pool/main/p/package/package_0.1.orig.tar.gz
 ./zzz-dists
-./zzz-dists/unstable
-./zzz-dists/unstable/InRelease
-./zzz-dists/unstable/Release
-./zzz-dists/unstable/Release.gpg
+./zzz-dists/sid
+./zzz-dists/sid/InRelease
+./zzz-dists/sid/Release
+./zzz-dists/sid/Release.gpg
