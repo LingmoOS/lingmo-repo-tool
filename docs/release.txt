@@ -500,6 +500,14 @@ dak generate-releases -s testing-debug
 dak generate-packages-sources2 -a build-queues
 dak generate-releases -a build-queues
 
+# after the bookworm release some symlinks/directories in
+#   - debian-buildd/dists/
+#   - debian-debug/dists/
+# were incorrect, e.g., testing-debug and buildd-testing-backports
+# were directories and not symlinks to ${codename}-debug, buildd-${codename}-backports
+# and the latter directories did not exist.
+# make sure this is correct.
+
 # do not forget to push incoming.d.o as well
 
 ########################################################################
