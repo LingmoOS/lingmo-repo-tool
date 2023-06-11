@@ -160,7 +160,7 @@ class ReleaseWriter:
         suite_suffix = utils.suite_suffix(self.suite.suite_name)
 
         return os.path.join(self.suite.archive.path, 'zzz-dists',
-                            self.suite.suite_name, suite_suffix)
+                            self.suite.codename or self.suite.suite_name, suite_suffix)
 
     def create_release_symlinks(self):
         """
