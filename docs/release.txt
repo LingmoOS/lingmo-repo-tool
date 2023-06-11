@@ -188,6 +188,13 @@ update suite set signingkeys = ARRAY[:'new_oldoldstable_key', :'new_oldstable_ke
 
 commit;
 
+# The previous SQL block sets oldoldstable-p-u, oldoldstable-updates to untouchable.
+# But we want to regenerate the Release files to have the updated Suite: field.
+# Ideally we also want to sign it with the old keys.
+# (Note: There was no problem with oldoldstable-updates (buster-updates) during
+# the bookworm release as the suite_name was using the codename...)
+# Needs to be looked at for trixie.
+
 MOVE STUFF AROUND:
 
 cd /srv/ftp-master.debian.org/ftp/dists
