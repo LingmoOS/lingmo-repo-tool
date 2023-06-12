@@ -287,6 +287,9 @@ function laststeps() {
     # and ensure its no longer used
     exec > "$logdir/after${PROGRAM}.log" 2>&1
 
+    # Rotate out old logfiles
+    find ${logdir}/${PROGRAM}_*.log.bz2 -mtime +${logkeep} -delete
+
     # Now, at the very (successful) end of this run, make sure we remove
     # our stage files, so the next script run will do it all again.
     if [[ ${successval} -eq 0 ]]; then

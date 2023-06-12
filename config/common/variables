@@ -35,6 +35,9 @@ PATH=${masterdir}:${PATH}
 # By default, add no timestamps to stage logs
 TIMESTAMP=false
 
+# How many days of logfiles to keep?
+declare -r logkeep=${logkeep:-60}
+
 declare -r HOSTNAME=$(hostname -s)
 
 # where do we want mails to go? For example log entries made with error()
