@@ -109,3 +109,5 @@ for d in stretch-backports-debug stretch-backports-sloppy-debug; do
 done
 
 # + jdupes again
+
+# Remind webmaster to remove stuff from packages.d.o
