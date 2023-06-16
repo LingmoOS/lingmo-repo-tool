@@ -110,4 +110,4 @@ done
 
 # + jdupes again
 
-# Remind webmaster to remove stuff from packages.d.o
+# Remind webmaster to update the corresponding pages in www.debian.org and remove stuff from packages.d.o 
