@@ -22,7 +22,7 @@ DINSTALLSTATE="${webdir}/dinstall.status"
 # get em out of the db.
 extimportdists=""
 if [ "${functionname}" = ftp-master.debian.org ]; then
-  for suite in testing unstable; do
+  for suite in testing unstable experimental; do
     codename=$(dak admin suite-config get-value ${suite} codename)
     extimportdists="${extimportdists} ${codename}"
   done
