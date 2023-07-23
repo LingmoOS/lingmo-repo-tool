@@ -458,6 +458,30 @@ class BinaryCheck(Check):
                                allow_relations=('=',))
 
 
+_DEB_ALLOWED_MEMBERS = {
+    "debian-binary",
+    *(f"control.tar.{comp}" for comp in ("gz", "xz")),
+    *(f"data.tar.{comp}" for comp in ("gz", "bz2", "xz")),
+}
+
+
+class BinaryMembersCheck(Check):
+    """check members of .deb file"""
+
+    def check(self, upload):
+        for binary in upload.changes.binaries:
+            filename = binary.hashed_file.filename
+            path = os.path.join(upload.directory, filename)
+            self._check_binary(filename, path)
+        return True
+
+    def _check_binary(self, filename: str, path: str) -> None:
+        deb = apt_inst.DebFile(path)
+        members = set(member.name for member in deb.getmembers())
+        if blocked_members := members - _DEB_ALLOWED_MEMBERS:
+            raise Reject(f"{filename}: Contains blocked members {', '.join(blocked_members)}")
+
+
 class BinaryTimestampCheck(Check):
     """check timestamps of files in binary packages
 
