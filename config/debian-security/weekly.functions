@@ -1,8 +1,9 @@
 # -*- mode:sh -*-
 
 function update_releases() {
-    # Update Release for main archive
+    # Update Release for main and debian-security-debug archives
     dak generate-releases -a security >/dev/null
+    dak generate-releases -a debian-security-debug >/dev/null
 
     # Update Release for buildd archive and publish it
     dak generate-releases -a build-queues >/dev/null
