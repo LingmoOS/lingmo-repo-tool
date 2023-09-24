@@ -1,0 +1,4 @@
+Fingerprint: 993C2870F54D83789E55323C13D986C3912E851C
+Uid: A Maintainer <maint@example.com>
+Allow: binnmupkg
+

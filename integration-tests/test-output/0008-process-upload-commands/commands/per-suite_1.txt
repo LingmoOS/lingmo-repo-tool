@@ -1,0 +1,4 @@
+Fingerprint: 589E8FA542378066E944B6222F7C63E8F3A2C549
+Uid: Snowman ☃ <snowman@example.com>
+Allow: testing-proposed-updates
+

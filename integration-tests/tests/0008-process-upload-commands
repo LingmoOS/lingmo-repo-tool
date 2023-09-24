@@ -1,0 +1,235 @@
+#! /bin/bash
+#
+# © 2023 Emilio Pozuelo Monfort <pochu@debian.org>
+# License: GPL-2+
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+set -e
+set -u
+
+. ${DAK_ROOT:?}/integration-tests/common
+. ${DAK_ROOT:?}/integration-tests/setup
+. ${DAK_ROOT:?}/integration-tests/dinstall
+
+packages=$(fixture-package-dir)
+
+# copy the keyring multiple times, so that we can modify them
+DDRING=${DAKBASE:?}/keyrings/dd/
+
+# snowman
+FP_snowman=589E8FA542378066E944B6222F7C63E8F3A2C549
+# Développeur
+FP_dev=22865D3DA7CF3DE67C1AF9A74014AB2D03010AA9
+# A Maintainer
+FP_maint=993C2870F54D83789E55323C13D986C3912E851C
+
+(
+  cp -Ta ${packages:?}/gpg/ $DDRING
+  ln -sf $DDRING/pubring.gpg ${DAKBASE:?}/keyrings/dd.gpg
+  export GNUPGHOME=$DDRING
+  # keep snowman and Développeur
+  gpg --batch --yes --delete-secret-and-public-key $FP_dev
+)
+
+
+(
+  export GNUPGHOME=${DAKBASE:?}/keyrings/tmp
+  mkdir ${DAKBASE:?}/keyrings/tmp
+  kr="process-upload"
+  echo $kr
+  krpath="${DAKBASE}/keyrings/dd.gpg"
+  psql -c "INSERT INTO acl (name, allow_new, allow_source, allow_binary,
+                            allow_binary_all, allow_binary_only, allow_hijack)
+                         VALUES ('$kr', 't', 't', 't', 't', 't', 't')"
+  psql -c "INSERT INTO keyrings (name, acl_id)
+                         VALUES ('$krpath',
+                                 (SELECT id FROM acl WHERE name='$kr'))"
+  psql -c "UPDATE acl
+                         SET match_keyring_id = (SELECT id FROM keyrings WHERE name='$krpath')
+                         WHERE name = '$kr'"
+  dak import-keyring -U "%s" $krpath
+)
+
+cat >> ${DAKBASE}/etc/dak.conf << EOF
+Command::ProcessUpload {
+  ACL "process-upload";
+};
+# commands in the test are processed almost immediately after they are signed,
+# so don't reject them for being too new
+Dinstall::SkipTime 0;
+
+EOF
+
+upload_to_tpu() {
+  # package in t-p-u, should hit the policy queue
+  upload_changes ${packages:?}/binnmupkg_0.1-1+b1_amd64.changes
+  process_uploads
+
+  echo a | dak process-new binnmupkg_0.1-1+b1_amd64.changes
+  do_new
+
+  # check that the upload is in the policy queue
+  expected="$(cat << EOF
+binnmupkg  | 0.1-1         | testing-new | source
+binnmupkg  | 0.1-1+b1      | testing-new | amd64
+EOF
+)"
+
+  actual=$(dak ls -S -s testing-new binnmupkg)
+  assert-equal "dak ls -S -s testing-new binnmupkg" "${actual}" "${expected}"
+}
+
+pu_command() {
+  export GNUPGHOME=$DDRING
+  export DEBEMAIL=someone@example.invalid
+  export DEBFULLNAME="Some One"
+  signer=$1
+  cmd=$2
+  pkg=$3
+  version=$4
+
+  command_file=$upload_dir/debian-${signer}-process-upload-${cmd}-${pkg}-${version}-`date +%s`.dak-commands
+
+  (cat << EOF
+Archive: ftp-master
+
+Action: process-upload
+Command: ${cmd}
+Source: ${pkg}
+Version: ${version}
+EOF
+  ) | gpg -u $signer --clearsign > ${command_file}
+}
+
+(
+  # we need a policy queue, so we set up the full archive
+  dak admin architecture add amd64 AMD64
+  dak admin suite add unstable "" codename=sid
+  dak admin suite-architecture add unstable source all amd64
+  dak admin suite-component add unstable main contrib non-free-firmware non-free
+
+  dak admin suite add testing "" codename=buster
+  dak admin suite-architecture add testing source all amd64
+  dak admin suite-component add testing main contrib non-free-firmware non-free
+  dak admin suite-config set testing allowcsset=True changelog=changelog-testing
+
+  dak admin suite add testing-proposed-updates "" codename=buster-proposed-updates
+  dak admin suite-architecture add testing-proposed-updates source all amd64
+  dak admin suite-component add testing-proposed-updates main contrib non-free-firmware non-free
+  dak admin suite-config set testing-proposed-updates allowcsset=True changelog=changelog-testing overridesuite=testing
+
+  dak admin suite add testing-new '' codename=buster-new accept_source_uploads=false accept_binary_uploads=false archive=policy
+  dak admin suite-architecture add testing-new source all amd64
+  dak admin suite-component add testing-new main contrib non-free-firmware non-free
+
+  commentdir=${DAKBASE}/queue/testing-new/COMMENTS
+  mkdir -p ${commentdir}
+
+  psql -1 -d projectb <<-EOT
+	\set ON_ERROR_STOP
+	INSERT INTO policy_queue (queue_name, path, send_to_build_queues, suite_id)
+	VALUES ('testing-new',
+	        '${DAKBASE}/queue/testing-new',
+	        TRUE,
+	        (SELECT id FROM suite WHERE suite_name = 'testing-new'));
+	UPDATE suite
+	SET policy_queue_id = (SELECT id FROM policy_queue WHERE queue_name = 'testing-new')
+	WHERE suite_name = 'testing-proposed-updates';
+	EOT
+)
+
+(
+  upload_changes ${packages:?}/binnmupkg_0.1-1_amd64.changes
+  process_uploads
+
+  echo a | dak process-new binnmupkg_0.1-1_amd64.changes
+  do_new
+)
+
+# Move package 0.1 to testing
+(
+  dak control-suite --list=unstable | dak control-suite --set=testing --britney
+  actual=$(dak control-suite --list=testing)
+  expected=$(dak control-suite --list=unstable)
+  assert-equal "dak control-suite --list=testing" "${actual}" "${expected}"
+)
+
+(
+  upload_to_tpu
+)
+
+(
+  dak acl allow process-upload $FP_maint binnmupkg
+
+  check_output per-source_1.txt "dak acl export-per-source process-upload"
+)
+
+(
+  # signed by snowman, only allowed by maint, should fail
+  pu_command $FP_snowman ACCEPT 'binnmupkg' '0.1-1+b1'
+  dak process-commands -d $upload_dir
+  dak process-policy testing-new
+
+  # check that the upload wasn't processed
+  expected=""
+  actual=$(dak ls -S -s testing-proposed-updates binnmupkg)
+  assert-equal "dak ls -S -s testing-proposed-updates binnmupkg" "${actual}" "${expected}"
+)
+
+# TODO: this fails because when we re-upload later to test the accept command,
+# dak complains that it has already seen the signature on the .changes file
+# so we would need to resign, clear the signature from the db or have two
+# packages...
+#
+#(
+#  # first let's reject the package
+#  pu_command $FP_maint REJECT 'binnmupkg' '0.1-1+b1'
+#  dak process-commands -d $upload_dir
+#  dak process-policy testing-new
+#
+#  # check that the upload was rejected
+#  expected=""
+#  actual=$(dak ls -S -s testing-proposed-updates binnmupkg)
+#  assert-equal "dak ls -S -s testing-proposed-updates binnmupkg" "${actual}" "${expected}"
+#
+#  expected=""
+#  actual=$(dak ls -S -s testing-new binnmupkg)
+#  assert-equal "dak ls -S -s testing-new binnmupkg" "${actual}" "${expected}"
+#
+#  # reupload to test accept command
+#  upload_to_tpu
+#)
+
+(
+  # signed by maint, should pass
+  pu_command $FP_maint ACCEPT 'binnmupkg' '0.1-1+b1'
+  dak process-commands -d $upload_dir
+  dak process-policy testing-new
+
+  # check that the upload was processed
+  expected="binnmupkg  | 0.1-1+b1      | testing-proposed-updates | amd64"
+  actual=$(dak ls -S -s testing-proposed-updates binnmupkg)
+  assert-equal "dak ls -S -s testing-proposed-updates binnmupkg" "${actual}" "${expected}"
+)
+
+(
+  dak acl allow-suite process-upload $FP_snowman testing-proposed-updates
+
+  check_output per-suite_1.txt "dak acl export-per-suite process-upload"
+)
+
+
+check_all_suites end
+

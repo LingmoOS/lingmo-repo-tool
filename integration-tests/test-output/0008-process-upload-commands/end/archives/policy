@@ -1,0 +1,8 @@
+.
+./pool
+./pool/main
+./pool/main/b
+./pool/main/b/binnmupkg
+./pool/main/b/binnmupkg/binnmupkg_0.1-1+b1_amd64.deb
+./pool/main/b/binnmupkg/binnmupkg_0.1-1.dsc
+./pool/main/b/binnmupkg/binnmupkg_0.1-1.tar.gz

@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 #
 # Copyright (C) 2012, Ansgar Burchardt <ansgar@debian.org>
+# Copyright (C) 2023 Emilio Pozuelo Monfort <pochu@debian.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +22,7 @@ import sys
 from collections.abc import Iterable
 from typing import NoReturn, Optional
 
-from daklib.dbconn import DBConn, Fingerprint, Keyring, Uid, ACL
+from daklib.dbconn import DBConn, Fingerprint, Keyring, Suite, Uid, ACL
 
 
 def usage(status: int = 0) -> NoReturn:
@@ -30,6 +31,9 @@ def usage(status: int = 0) -> NoReturn:
   dak acl export-per-source <acl-name>
   dak acl allow <acl-name> <fingerprint> <source>...
   dak acl deny <acl-name> <fingerprint> <source>...
+  dak acl export-per-suite <acl-name>
+  dak acl allow-suite <acl-name> <fingerprint> <suite>...
+  dak acl deny-suite <acl-name> <fingerprint> <suite>...
 
   set-fingerprints:
     Reads list of fingerprints from stdin and sets the ACL <acl-name> to these.
@@ -41,6 +45,12 @@ def usage(status: int = 0) -> NoReturn:
 
   allow, deny:
     Grant (revoke) per-source upload rights for ACL <acl-name>.
+
+  export-per-suite:
+    Export per suite upload rights for ACL <acl-name>.
+
+  allow-suite, deny-suite:
+    Grant (revoke) per-suite upload rights for ACL <acl-name>.
 """)
     sys.exit(status)
 
@@ -128,6 +138,37 @@ def acl_export_per_source(acl_name: str) -> None:
     session.close()
 
 
+def acl_export_per_suite(acl_name: str) -> None:
+    session = DBConn().session()
+    acl = session.query(ACL).filter_by(name=acl_name).one()
+
+    query = r"""
+      SELECT
+        f.fingerprint,
+        (SELECT COALESCE(u.name, '') || ' <' || u.uid || '>'
+           FROM uid u
+           JOIN fingerprint f2 ON u.id = f2.uid
+          WHERE f2.id = f.id) AS name,
+        s.suite_name
+      FROM acl_per_suite a
+      JOIN fingerprint f ON a.fingerprint_id = f.id
+      JOIN suite s ON a.suite_id = s.id
+      LEFT JOIN uid u ON f.uid = u.id
+      WHERE a.acl_id = :acl_id
+      GROUP BY f.id, f.fingerprint, s.suite_name
+      ORDER BY name
+      """
+
+    for row in session.execute(query, {'acl_id': acl.id}):
+        print("Fingerprint:", row[0])
+        print("Uid:", row[1])
+        print("Allow:", row[2])
+        print()
+
+    session.rollback()
+    session.close()
+
+
 def acl_allow(acl_name: str, fingerprint: str, sources: Iterable[str]) -> None:
     tbl = DBConn().tbl_acl_per_source
 
@@ -153,6 +194,36 @@ def acl_allow(acl_name: str, fingerprint: str, sources: Iterable[str]) -> None:
     session.commit()
 
 
+def acl_allow_suite(acl_name: str, fingerprint: str, suites: Iterable[str]) -> None:
+    tbl = DBConn().tbl_acl_per_suite
+
+    session = DBConn().session()
+
+    acl_id = session.query(ACL).filter_by(name=acl_name).one().id
+    fingerprint_id = session.query(Fingerprint).filter_by(fingerprint=fingerprint).one().fingerprint_id
+
+    # TODO: check that fpr is in ACL
+
+    data = []
+
+    for suite in suites:
+        try:
+            suite_id = session.query(Suite).filter_by(suite_name=suite).one().suite_id
+        except:
+            suite_id = session.query(Suite).filter_by(codename=suite).one().suite_id
+
+        data.append({
+            'acl_id': acl_id,
+            'fingerprint_id': fingerprint_id,
+            'suite_id': suite_id,
+            'reason': 'set by {} via CLI'.format(os.environ.get('USER', '(unknown)')),
+        })
+
+    session.execute(tbl.insert(), data)
+
+    session.commit()
+
+
 def acl_deny(acl_name: str, fingerprint: str, sources: Iterable[str]) -> None:
     tbl = DBConn().tbl_acl_per_source
 
@@ -171,6 +242,29 @@ def acl_deny(acl_name: str, fingerprint: str, sources: Iterable[str]) -> None:
     session.commit()
 
 
+def acl_deny_suite(acl_name: str, fingerprint: str, suites: Iterable[str]) -> None:
+    tbl = DBConn().tbl_acl_per_suite
+
+    session = DBConn().session()
+
+    acl_id = session.query(ACL).filter_by(name=acl_name).one().id
+    fingerprint_id = session.query(Fingerprint).filter_by(fingerprint=fingerprint).one().fingerprint_id
+
+    # TODO: check that fpr is in ACL
+
+    for suite in suites:
+        try:
+            suite_id = session.query(Suite).filter_by(suite_name=suite).one().suite_id
+        except:
+            suite_id = session.query(Suite).filter_by(codename=suite).one().suite_id
+
+        result = session.execute(tbl.delete().where(tbl.c.acl_id == acl_id).where(tbl.c.fingerprint_id == fingerprint_id).where(tbl.c.suite_id == suite_id))
+        if result.rowcount < 1:
+            print("W: Tried to deny uploads for suite '{}', but was not allowed before.".format(suite))
+
+    session.commit()
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv
@@ -185,9 +279,15 @@ def main(argv=None):
         acl_set_fingerprints(argv[2], sys.stdin)
     elif argv[1] == 'export-per-source':
         acl_export_per_source(argv[2])
+    elif argv[1] == 'export-per-suite':
+        acl_export_per_suite(argv[2])
     elif argv[1] == 'allow':
         acl_allow(argv[2], argv[3], argv[4:])
     elif argv[1] == 'deny':
         acl_deny(argv[2], argv[3], argv[4:])
+    elif argv[1] == 'allow-suite':
+        acl_allow_suite(argv[2], argv[3], argv[4:])
+    elif argv[1] == 'deny-suite':
+        acl_deny_suite(argv[2], argv[3], argv[4:])
     else:
         usage(1)
