@@ -29,7 +29,7 @@ def decompress_zstd(input: IO, output: IO) -> None:
 
 
 def decompress_xz(input: IO, output: IO) -> None:
-    subprocess.check_call(["xz", "--decompress"], stdin=input, stdout=output)
+    subprocess.check_call(["xz", "--decompress", "-T0"], stdin=input, stdout=output)
 
 
 def decompress_bz2(input: IO, output: IO) -> None:

@@ -102,7 +102,7 @@ async def smartlink(f, t):
     elif os.path.isfile("%s.bz2" % (f)):
         await call_decompressor(['bzip2', '-d'], '{}.bz2'.format(f), t)
     elif os.path.isfile("%s.xz" % (f)):
-        await call_decompressor(['xz', '-d'], '{}.xz'.format(f), t)
+        await call_decompressor(['xz', '-d', '-T0'], '{}.xz'.format(f), t)
     elif os.path.isfile(f"{f}.zst"):
         await call_decompressor(['zstd', '--decompress'], f'{f}.zst', t)
     else:
