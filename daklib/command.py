@@ -354,7 +354,7 @@ class CommandFile:
         filename = f"{command}.{source}_{upload.changes.version}"
         content = "OK" if command == "ACCEPT" else "NOTOK"
 
-        with open(os.path.join(upload.policy_queue.path, "COMMENTS", filename), "wx") as f:
+        with open(os.path.join(upload.policy_queue.path, "COMMENTS", filename), "x") as f:
             f.write(content + "\n")
 
     def _action_process_upload_common(self, fingerprint, section, session) -> None:
