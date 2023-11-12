@@ -881,6 +881,7 @@ class ArchiveUpload:
                     checks.ExternalHashesCheck,
                     checks.SourceCheck,
                     checks.BinaryCheck,
+                    checks.BinaryMembersCheck,
                     checks.BinaryTimestampCheck,
                     checks.SingleDistributionCheck,
                     checks.ArchAllBinNMUCheck,
