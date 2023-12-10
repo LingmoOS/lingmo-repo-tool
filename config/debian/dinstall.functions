@@ -407,6 +407,7 @@ function mirror() {
             --filter 'protect /project/' \
             --filter 'protect /project/trace/' \
             --filter 'protect /project/trace/*' \
+            --exclude-from=/srv/ftp-master.debian.org/mirror-excluded-files.list \
             --ignore-errors \
             ${archiveroot}/. ${targetpath}/.
 
