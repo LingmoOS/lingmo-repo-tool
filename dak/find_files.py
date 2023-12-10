@@ -91,11 +91,12 @@ def main():
     if pkg is None:
         utils.fubar(f"Source {source} at version {version} does not exist")
 
-    pool_path = Path("pool")
     filenames = []
 
+    # Don't include pool otherwise we have to work out components (which may vary
+    # by archive).  The partial path is enough for rsync to match it
     for binary in pkg.binaries:
-        filenames.append(str(pool_path / binary.poolfile.filename))
+        filenames.append(binary.poolfile.filename)
 
     for filename in sorted(filenames):
         print(filename)
