@@ -162,6 +162,8 @@ def init():
          "Modify external overrides"),
         ("write-sections",
          "Write out section descriptions"),
+        ("find-files",
+         "Find files related to a given source package and version"),
     ]
     return functionality
 
