@@ -26,9 +26,9 @@ export SCRIPTVARS=/srv/ftp-master.debian.org/dak/config/debian/vars
 . $SCRIPTVARS
 
 usage() {
-  echo "usage: $0 <suite>"
+  echo "usage: $0 <codename>"
   echo
-  echo "sync dists/<suite> to a location accessible by the release team"
+  echo "sync dists/<codename> to a location accessible by the release team"
   echo "excluding irrelevant bits (such as installer images)"
   exit ${1:-0}
 }
@@ -37,16 +37,16 @@ if [ $# -ne 1 ]; then
   usage
 fi
 
-suite="${1}"
-archive_path=$(psql -qAtc "SELECT path FROM archive WHERE id = (SELECT archive_id FROM suite WHERE suite_name='${suite}')")
+codename="${1}"
+archive_path=$(psql -qAtc "SELECT path FROM archive WHERE id = (SELECT archive_id FROM suite WHERE codename='${codename}')")
 target="sync-release:/srv/ftp-master.debian.org/tmp-release/"
 
 rsync -avH --progress -B8192 \
   --relative \
-  --exclude "/dists/${suite}/main/installer-*" \
+  --exclude "/dists/${codename}/main/installer-*" \
   --timeout 3600 \
   -e 'ssh -o ConnectTimeout=30 -o SetupTimeout=30' \
-  "${archive_path:?}/./dists/${suite}/" "${archive_path:?}/./zzz-dists/${suite}/" "${target}"
+  "${archive_path:?}/./dists/${codename}/" "${archive_path:?}/./zzz-dists/${codename}/" "${target}"
 
 # command for the remote side:
 # rsync --server -lHogDtprRe.iLsfx -B8192 --timeout=3600 . /srv/ftp-master.debian.org/tmp-release/

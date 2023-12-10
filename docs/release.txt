@@ -271,7 +271,7 @@ for suite in stable stable-debug oldstable oldstable-debug ${new_oldstable}-upda
 done
 
 for suite in oldoldstable oldoldstable-debug ${new_oldoldstable}-updates oldstable oldstable-debug stable stable-debug; do
-  ${scriptsdir}/sync-release ${suite}
+  ${scriptsdir}/sync-release ${suitename}
 done
 
 mkdir -p ~/${new_stable}_${new_stable_version}.0

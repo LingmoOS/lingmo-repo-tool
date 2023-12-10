@@ -386,19 +386,19 @@ log "Time to run gps/contents, RMs can check if all looks ok"
 gps_suites=${suite},${pusuite},${suite}-debug,${pusuite}-debug
 
 dak generate-packages-sources2 --force -s ${gps_suites}
-${scriptsdir}/sync-release ${suite} &
+${scriptsdir}/sync-release ${suitename} &
 log "Contents"
-dak contents generate -f -s ${suite} -a ftp-master
+dak contents generate -f -s ${suitename} -a ftp-master
 wait
-${scriptsdir}/sync-release ${suite}
-${scriptsdir}/sync-release ${suite}-debug
+${scriptsdir}/sync-release ${suitename}
+${scriptsdir}/sync-release ${suitename}-debug
 
 echo "Generate release files?"
 confirm
 release_suites="${suite} ${pusuite} ${suite}-debug ${pusuite}-debug"
 dak generate-releases -f -s ${release_suites}
-${scriptsdir}/sync-release ${suite}
-${scriptsdir}/sync-release ${suite}-debug
+${scriptsdir}/sync-release ${suitename}
+${scriptsdir}/sync-release ${suitename}-debug
 
 log "Release file generated, waiting for RMs checking and (hopefully) signing"
 
@@ -439,14 +439,14 @@ merge-release-signatures() {(
     cp ${oursignature} ${archiveroot}/dists/${s}/${oursignature}
 )}
 
-merge-release-signatures $(get_archiveroot ftp-master) ${suite} Release.gpg Release Release-${newrev}.gpg
-merge-release-signatures $(get_archiveroot debian-debug) ${suite}-debug Release.gpg Release Release-${newrev}-debug.gpg
+merge-release-signatures $(get_archiveroot ftp-master) ${suitename} Release.gpg Release Release-${newrev}.gpg
+merge-release-signatures $(get_archiveroot debian-debug) ${suitename}-debug Release.gpg Release Release-${newrev}-debug.gpg
 if [ "${suitename}" = stretch ]; then
-    rm -f $(get_archiveroot ftp-master)/dists/${suite}/InRelease $(get_archiveroot ftp-master)/zzz-dists/${suite}/InRelease
-    rm -f $(get_archiveroot debian-debug)/dists/${suite}-debug/InRelease $(get_archiveroot debian-debug)/zzz-dists/${suite}-debug/InRelease
+    rm -f $(get_archiveroot ftp-master)/dists/${suitename}/InRelease $(get_archiveroot ftp-master)/zzz-dists/${suite}/InRelease
+    rm -f $(get_archiveroot debian-debug)/dists/${suitename}-debug/InRelease $(get_archiveroot debian-debug)/zzz-dists/${suite}-debug/InRelease
 else
-    merge-release-signatures $(get_archiveroot ftp-master) ${suite} InRelease "" InRelease-${newrev}.gpg
-    merge-release-signatures $(get_archiveroot debian-debug) ${suite}-debug InRelease "" InRelease-${newrev}-debug.gpg
+    merge-release-signatures $(get_archiveroot ftp-master) ${suitename} InRelease "" InRelease-${newrev}.gpg
+    merge-release-signatures $(get_archiveroot debian-debug) ${suitename}-debug InRelease "" InRelease-${newrev}-debug.gpg
 fi
 
 echo "Done. Is a mirrorpush needed? Or just one to the cd-builder?"
