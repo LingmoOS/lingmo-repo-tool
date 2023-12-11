@@ -399,6 +399,10 @@ function mirror() {
         archiveroot="$(get_archiveroot "${archive}")"
         targetpath="${mirrordir}/${archive}"
 
+        if [[ ! -f ${archiveroot}/../mirror-excluded-files.list ]]; then
+            log "Mirror exclude file should exist, even if it is empty"
+            touch ${archiveroot}/../mirror-excluded-files.list
+        fi
         log "Regenerating \"public\" mirror/${archive} hardlink fun"
         rsync -aH --link-dest ${archiveroot} \
             --delete --delete-after --delete-excluded \
@@ -407,7 +411,7 @@ function mirror() {
             --filter 'protect /project/' \
             --filter 'protect /project/trace/' \
             --filter 'protect /project/trace/*' \
-            --exclude-from=/srv/ftp-master.debian.org/mirror-excluded-files.list \
+            --exclude-from=${archiveroot}/../mirror-excluded-files.list \
             --ignore-errors \
             ${archiveroot}/. ${targetpath}/.
 
