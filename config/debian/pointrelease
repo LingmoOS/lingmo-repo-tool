@@ -388,7 +388,7 @@ gps_suites=${suite},${pusuite},${suite}-debug,${pusuite}-debug
 dak generate-packages-sources2 --force -s ${gps_suites}
 ${scriptsdir}/sync-release ${suitename} &
 log "Contents"
-dak contents generate -f -s ${suitename} -a ftp-master
+dak contents generate -f -s ${suite} -a ftp-master
 wait
 ${scriptsdir}/sync-release ${suitename}
 ${scriptsdir}/sync-release ${suitename}-debug
