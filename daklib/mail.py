@@ -19,8 +19,12 @@ def sign_mail(msg: email.message.EmailMessage, *, digest_algorithm: str = "SHA25
     This only handles non-multipart messages.
     """
     mime_data = email.message.MIMEPart()
-    mime_data.set_content(msg.get_payload(), cte="quoted-printable")
+    mime_data.set_content(msg.get_payload())
+    # Copy Content-Transfer-Encoding from unsigned message
+    del mime_data["Content-Transfer-Encoding"]
+    mime_data["Content-Transfer-Encoding"] = msg["Content-Transfer-Encoding"]
     data = mime_data.as_bytes(policy=email.policy.SMTP)
+
     sig = daklib.gpg.sign(data, **kwargs, digest_algorithm=digest_algorithm)
     mime_sig = email.message.MIMEPart()
     mime_sig['Content-Type'] = 'application/pgp-signature'
