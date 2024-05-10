@@ -1,0 +1,7 @@
+# Please edit the master copy in dak.git!
+#   path: config/homedir/ssh/lw01-authorized_keys
+
+# sync morgue files from ftp-master, security-master
+# see scripts/debian/link_morgue.sh in dak.git
+command="rsync --server -lHogDtpRe.Lsf --remove-source-files . /srv/morgue.debian.org/sync/ftp-master",restrict,from="fasolo.debian.org,192.91.235.231" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPK73mhakYYWz+IeOAszUV7qE0shrGy6+Qyd8FzHfGgj dak@fasolo 2024-05-10 push_morgue
+command="rsync --server -lHogDtpRe.Lsf --remove-source-files . /srv/morgue.debian.org/sync/security-master",restrict,from="seger.debian.org,82.195.75.93,2001:41b8:202:deb::311:93" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKtmrah/BlS5BZ5z8eJq0J8SMvLwzSv5lQEnT4e1tFcC dak@seger 2024-05-10 push_morgue
