@@ -401,7 +401,7 @@ class Changes:
         to the filename (this should really never happen).
         """
         return (
-            self.changes.get('Source'),
+            self.changes.get('Source', ''),
             AptVersion(self.changes.get('Version', '')),
             not self.sourceful,
             self.filename
