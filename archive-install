@@ -1,0 +1,85 @@
+#!/bin/bash
+#
+# $Id: archive-install 62 2004-08-31 03:56:09Z guillem $
+#
+# Copyright (C) 2003, 2004 Guillem Jover <guillem@debian.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
+#
+
+#
+# Requires: apt-utils
+#
+
+# Import library
+
+. archive-lib
+
+# file output
+
+pool_install ()
+{
+  local changes=$1
+  local files="$2 $changes"
+  local dest_dir=$3
+
+  if [ ! -d "$dest_dir" ]; then
+    mkdir -p $dest_dir
+  fi
+
+  if err=`mv $files $dest_dir` ; then
+    log install "install_success $changes"
+    return 0
+  else
+    script_error "$err"
+    log install "install_failed $changes"
+    return 1
+  fi
+}
+
+# message output
+
+script_error ()
+{
+  # FIXME: message should be nicer than that
+  log install "$1" | echo mail -s "Error in `basename $0`" $archive_maint
+}
+
+#
+# Main
+#
+
+cd $accepted_dir
+
+shopt -s nullglob
+
+for archive_file in *.archive; do
+    changes_file=`basename $archive_file archive`changes
+    dest_dir=`poolize_archive_file $archive_file`
+    files=`fetch_files < $archive_file`
+
+    pool_install "$changes_file" "$files" "$dest_dir"
+    rm $archive_file
+
+    INSTALLED=yes
+done
+
+cd -
+
+if [ "$INSTALLED" = "yes" ]; then
+  ./archive-reindex
+  ./archive-quinn
+fi
+
