@@ -23,6 +23,10 @@
 # Requires: procmail (formail)
 #
 
+# Set proper language
+
+export LC_ALL=C.UTF-8
+
 # Import configuration
 
 . archive.conf
